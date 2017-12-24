@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>FinalRun</title>
+    <meta charset="utf-8" />
+    <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <script src="https://unpkg.com/marked@0.3.6"></script>
+    <script src="https://unpkg.com/lodash@4.16.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue-resource@1.3.4"></script>
+    <script src="https://unpkg.com/vue"></script>
+    <script src="https://unpkg.com/vue-resource/dist/vue-resource.js"></script>
+
+
+</head>
+
+<body>
+    <h1>Шестая лаба</h1>
+    <div id="editor">
+        <textarea :value="input" @input="update"></textarea>
+        <div v-html="compiledMarkdown"></div>
+
+
+        <div class="grid-container">
+                <div class="grid-item" style="padding-top: 16px">
+                    <button class="bbutton" v-on:click="save()">Сохранить</button>
+                    <input type="text" placeholder="Имя файла" v-model="newFileName" />
+                </div>
+                <div class="grid-item">
+                    <ul>
+                        <li v-for="file in files">
+                            <p>Имя: {{file.fileName}}</p>
+                            <button class="bbutton" v-on:click="open(file)">Открыть файл</button>
+                        </li>
+                        <button class="bbutton" v-on:click="create()">Создать новый</button>
+                        <button class="bbutton" v-on:click="getFiles()">Список файлов</button>
+                    </ul>
+                </div>
+        </div>
+    </div>
+    <script>
+        var globalCount = 0;
+        new Vue({
+
+            el: '#editor',
+            data: {
+                input: '# Hello',
+                newFileName: '',
+                currentFile: null,
+                newFile: null,
+                newFileData: '',
+                files: [
+                ]
+            },
+            computed: {
+                compiledMarkdown: function () {
+                    return marked(this.input, { sanitize: true })
+                }
+            },
+            methods: {
+                update: _.debounce(function (e) {
+                    this.input = e.target.value
+                }, 300),
+                create: function () {
+                    this.input = '';
+                    this.currentFile = null;
+                },
+                open: function (file) {
+                    var fileName = file['fileName'];
+                    var currentFile = this.files.filter(function (elem) {
+                        if (elem.fileName === fileName) return elem;
+                    })[0];
+                    this.input = currentFile.fileData;
+                    this.currentFile = currentFile;
+                    this.newFileName = '';
+                },
+                save: function () {
+                    if (this.newFileName.length < 20) {
+                        if (this.currentFile === null) {
+                            this.newFileData = this.input + ' ';
+                            this.files.push({ fileName: this.newFileName, fileData: this.newFileData });
+                            this.newFile = { fileName: this.newFileName, fileData: this.newFileData }
+                            this.postFiles();
+                        }
+                        else {
+                            var index = this.files.indexOf(this.currentFile);
+                            Vue.set(this.files, index, { id: this.currentFile.id, fileName: this.currentFile.fileName, fileData: this.input + ' ' })
+                            this.currentFile = this.files[index];
+                            this.putFiles();
+                        }
+                    }
+                    else {
+                        alert("Length for string need less than 20")
+                    }
+                },
+                //получить файлы
+                getFiles: function () {
+                    var apiURL = "http://localhost:8000/";
+
+                    this.$http.get(apiURL + "api/files")
+                        .then(function (response) {
+                            var inputFiles = response.body;
+                            if (globalCount != inputFiles.length) {
+                                for (var i = 0; i < inputFiles.length; i++) {
+                                    this.files.push({ id: inputFiles[i]._id, fileName: inputFiles[i].fileName, fileData: inputFiles[i].fileData })
+                                }
+                                globalCount = inputFiles.length;
+                            }
+                        })
+                        .catch(function (error) {
+                            console.error(error);
+                        });
+                },
+                //добавить новый файл
+                postFiles: function () {
+                    var apiURL = "http://localhost:8000";
+
+                    this.$http.post(apiURL + "/api/files",
+                        {
+                            body:this.newFile
+                        },
+
+                        function (response) {
+                        })
+                        .then(function (response) {
+                        })
+                        .catch(function (error) {
+                            console.error(error);
+                        });
+                        globalCount++;
+                },
+                putFiles: function () {
+                    var apiURL = "http://localhost:8000/";
+
+                    this.$http.put(apiURL + "api/files", {
+                        body: this.currentFile
+                    })
+                        .then(function (response) {
+                        })
+                        .catch(function (error) {
+                            console.error(error);
+                        });
+                }
+            }
+        })
+
+    </script>
+</body>
+
+</html>
